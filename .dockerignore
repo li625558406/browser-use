@@ -1,46 +1,44 @@
-docs/
-static/
-.claude/
-.github/
+# D:/AI/ai-scout/browser-use/.dockerignore
 
-# Cache files
-.DS_Store
-__pycache__/
-*.py[cod]
-*$py.class
-.mypy_cache/
-.ruff_cache/
-.pytest_cache/
-.ipynb_checkpoints
+# Git
+.git
+.gitignore
 
-# Virtual Environments
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+dist
+build
 .venv
 venv/
 
-# Editor cruft
-.vscode/
-.idea/
+# Frontend (built separately)
+frontend/node_modules
+frontend/dist
 
-# Build Files
-dist/
+# IDE
+.vscode
+.idea
+*.swp
 
-# Data files
-*.gif
-*.txt
-*.pdf
-*.csv
-*.json
-*.jsonl
-*.bak
+# Logs
+*.log
 
-# Secrets and sensitive files
-secrets.env
+# Data (mounted as volume)
+data/*.db
+data/*.db-journal
+
+# Environment
 .env
-browser_cookies.json
-cookies.json
-gcp-login.json
-saved_trajectories/
-AgentHistory.json
-AgentHistoryList.json
-private_example.py
-private_example
+.env.local
+
+# Docs
+docs
+*.md
+!README.md
