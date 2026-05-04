@@ -220,14 +220,15 @@ async function handleTest(id: number) {
   try {
     const result = await llmStore.testConfig(id)
     loadingMsg.close()
-    if (result.status === 'success') {
-      ElMessage.success('连接测试成功！')
-    } else {
-      ElMessage.error(result.message || '连接测试失败')
-    }
-  } catch (e) {
+    // API 返回的数据结构是 { provider, model, latency_ms }
+    // 如果能正常返回说明测试成功
+    const latency = result.latency_ms ? ` (耗时: ${result.latency_ms}ms)` : ''
+    ElMessage.success(`连接测试成功！${latency}`)
+  } catch (e: any) {
     loadingMsg.close()
-    ElMessage.error('连接测试失败')
+    // e 包含错误信息
+    const errorMsg = e?.response?.data?.message || e?.message || '连接测试失败'
+    ElMessage.error(errorMsg)
   }
 }
 
