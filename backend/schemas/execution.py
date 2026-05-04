@@ -12,6 +12,7 @@ class TaskExecutionResponse(BaseModel):
 
 	id: int
 	task_id: int
+	task_name: str  # 添加任务名称
 	status: str
 	started_at: Optional[datetime]
 	completed_at: Optional[datetime]

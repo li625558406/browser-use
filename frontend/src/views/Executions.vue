@@ -3,20 +3,20 @@
     <div class="page-header">
       <h2>执行记录</h2>
       <div class="header-actions">
-        <el-select v-model="filterStatus" placeholder="筛选状态" clearable style="width: 150px">
+        <el-select v-model="filterStatus" placeholder="筛选状态" clearable style="width: 150px" @change="applyFilters">
           <el-option label="全部" value="" />
           <el-option label="运行中" value="running" />
           <el-option label="成功" value="success" />
           <el-option label="失败" value="failed" />
         </el-select>
-        <el-select v-model="filterTask" placeholder="筛选任务" clearable style="width: 200px">
+        <el-select v-model="filterTask" placeholder="筛选任务" clearable style="width: 200px" @change="applyFilters">
           <el-option v-for="task in tasks" :key="task.id" :label="task.name" :value="task.id" />
         </el-select>
         <el-button @click="refreshExecutions">刷新</el-button>
       </div>
     </div>
 
-    <el-table :data="filteredExecutions" style="width: 100%">
+    <el-table :data="displayedExecutions" style="width: 100%" v-loading="loading">
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="task_name" label="任务名称" width="200" />
       <el-table-column label="状态" width="100">
@@ -46,6 +46,7 @@
           <el-button size="small" @click="viewDetail(row)">详情</el-button>
           <el-button v-if="row.screenshot_path" size="small" @click="viewScreenshot(row)">截图</el-button>
           <el-button v-if="row.error_message" size="small" type="warning" @click="viewError(row)">错误</el-button>
+          <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -57,6 +58,8 @@
       :page-sizes="[10, 20, 50, 100]"
       layout="total, sizes, prev, pager, next, jumper"
       style="margin-top: 20px; justify-content: flex-end"
+      @size-change="handleSizeChange"
+      @current-change="handlePageChange"
     />
 
     <el-dialog v-model="showDetail" title="执行详情" width="800px">
@@ -83,9 +86,9 @@
           </el-alert>
         </div>
 
-        <div v-if="currentExecution.output" class="output-section">
+        <div v-if="currentExecution.log_content" class="output-section">
           <h4>执行输出</h4>
-          <pre class="output-content">{{ currentExecution.output }}</pre>
+          <pre class="output-content">{{ currentExecution.log_content }}</pre>
         </div>
       </div>
     </el-dialog>
@@ -103,12 +106,14 @@
 import { ref, computed, onMounted } from 'vue'
 import { useExecutionsStore } from '@/stores/executions'
 import { useTasksStore } from '@/stores/tasks'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const executionsStore = useExecutionsStore()
 const tasksStore = useTasksStore()
 
 const tasks = computed(() => tasksStore.tasks)
+const executions = computed(() => executionsStore.executions)
+const loading = computed(() => executionsStore.loading)
 
 const filterStatus = ref('')
 const filterTask = ref<number | null>(null)
@@ -121,45 +126,9 @@ const showScreenshot = ref(false)
 const currentExecution = ref<any>(null)
 const screenshotUrl = ref('')
 
-// 模拟执行记录数据
-const mockExecutions = ref([
-  {
-    id: 1,
-    task_id: 1,
-    task_name: '每日产品数据抓取',
-    status: 'success',
-    started_at: '2025-01-04T14:30:00',
-    completed_at: '2025-01-04T14:32:15',
-    error_message: null,
-    screenshot_path: '/screenshots/exec_1.png',
-    output: '成功抓取 25 个产品数据...'
-  },
-  {
-    id: 2,
-    task_id: 2,
-    task_name: '新闻摘要生成',
-    status: 'failed',
-    started_at: '2025-01-04T12:00:00',
-    completed_at: '2025-01-04T12:01:30',
-    error_message: 'API 连接超时',
-    screenshot_path: null,
-    output: '尝试连接 API...'
-  },
-  {
-    id: 3,
-    task_id: 1,
-    task_name: '每日产品数据抓取',
-    status: 'running',
-    started_at: '2025-01-04T10:00:00',
-    completed_at: null,
-    error_message: null,
-    screenshot_path: null,
-    output: '正在初始化浏览器...'
-  }
-])
-
+// 过滤后的执行记录
 const filteredExecutions = computed(() => {
-  let result = mockExecutions.value
+  let result = executions.value
 
   if (filterStatus.value) {
     result = result.filter(e => e.status === filterStatus.value)
@@ -169,6 +138,12 @@ const filteredExecutions = computed(() => {
     result = result.filter(e => e.task_id === filterTask.value)
   }
 
+  return result
+})
+
+// 当前页显示的执行记录
+const displayedExecutions = computed(() => {
+  const result = filteredExecutions.value
   totalCount.value = result.length
   const start = (currentPage.value - 1) * pageSize.value
   return result.slice(start, start + pageSize.value)
@@ -176,8 +151,25 @@ const filteredExecutions = computed(() => {
 
 onMounted(async () => {
   await tasksStore.fetchTasks()
-  await executionsStore.fetchExecutions()
+  await fetchExecutions()
 })
+
+async function fetchExecutions() {
+  await executionsStore.fetchExecutions()
+}
+
+function applyFilters() {
+  currentPage.value = 1
+}
+
+function handlePageChange(page: number) {
+  currentPage.value = page
+}
+
+function handleSizeChange(size: number) {
+  pageSize.value = size
+  currentPage.value = 1
+}
 
 function statusType(status: string) {
   const types: Record<string, any> = {
@@ -226,8 +218,15 @@ function viewError(execution: any) {
   ElMessage.error(execution.error_message)
 }
 
+async function handleDelete(execution: any) {
+  await ElMessageBox.confirm('确定删除此执行记录？', '确认', { type: 'warning' })
+  await executionsStore.deleteExecution(execution.id)
+  ElMessage.success('执行记录已删除')
+  await fetchExecutions()
+}
+
 function refreshExecutions() {
-  executionsStore.fetchExecutions()
+  fetchExecutions()
   ElMessage.success('已刷新')
 }
 </script>

@@ -2,7 +2,7 @@
   <div class="tasks-page">
     <div class="page-header">
       <h2>任务管理</h2>
-      <el-button type="primary" @click="showCreateDialog = true">新建任务</el-button>
+      <el-button type="primary" @click="openCreateDialog">新建任务</el-button>
     </div>
 
     <div class="task-list">
@@ -18,11 +18,11 @@
       />
     </div>
 
-    <el-dialog v-model="showCreateDialog" title="新建任务" width="600px">
+    <el-dialog v-model="showTaskDialog" :title="dialogTitle" width="600px" @closed="handleDialogClosed">
       <TaskForm ref="formRef" v-model="formData" />
       <template #footer>
-        <el-button @click="showCreateDialog = false">取消</el-button>
-        <el-button type="primary" @click="handleCreate">创建</el-button>
+        <el-button @click="showTaskDialog = false">取消</el-button>
+        <el-button type="primary" @click="handleSave">保存</el-button>
       </template>
     </el-dialog>
   </div>
@@ -45,7 +45,9 @@ const llmStore = useLLMStore()
 const tasks = computed(() => tasksStore.tasks)
 const loading = computed(() => tasksStore.loading)
 
-const showCreateDialog = ref(false)
+const showTaskDialog = ref(false)
+const isEditMode = ref(false)
+const editingTaskId = ref<number | null>(null)
 const formData = ref({
   name: '',
   description: '',
@@ -57,6 +59,8 @@ const formData = ref({
   profile_name: 'Default'
 })
 
+const dialogTitle = computed(() => isEditMode.value ? '编辑任务' : '新建任务')
+
 onMounted(async () => {
   await Promise.all([
     tasksStore.fetchTasks(),
@@ -65,7 +69,36 @@ onMounted(async () => {
   ])
 })
 
-async function handleCreate() {
+function openCreateDialog() {
+  isEditMode.value = false
+  editingTaskId.value = null
+  resetForm()
+  showTaskDialog.value = true
+}
+
+function handleEdit(task: Task) {
+  isEditMode.value = true
+  editingTaskId.value = task.id
+
+  // 填充表单数据
+  formData.value = {
+    name: task.name,
+    description: task.description || '',
+    target_url: task.target_url || '',
+    prompt_id: task.prompt_id || undefined,
+    llm_config_id: task.llm_config_id || undefined,
+    schedule: {
+      type: task.schedule_type,
+      time: task.schedule_config?.time || '09:00'
+    },
+    browser_mode: task.browser_mode as 'connect' | 'profile',
+    profile_name: task.profile_name || 'Default'
+  }
+
+  showTaskDialog.value = true
+}
+
+async function handleSave() {
   try {
     // 清理 undefined 字段，构造 TaskCreate 对象
     const rawFormData = formData.value
@@ -82,21 +115,32 @@ async function handleCreate() {
     if (rawFormData.llm_config_id) dataToSubmit.llm_config_id = rawFormData.llm_config_id
     if (rawFormData.profile_name) dataToSubmit.profile_name = rawFormData.profile_name
 
-    console.log('提交数据:', dataToSubmit)
-    const result = await tasksStore.createTask(dataToSubmit)
-    console.log('创建任务成功:', result)
-    ElMessage.success('任务创建成功')
-    showCreateDialog.value = false
-    // 重置表单
+    if (isEditMode.value && editingTaskId.value) {
+      // 更新任务
+      await tasksStore.updateTask(editingTaskId.value, dataToSubmit)
+      ElMessage.success('任务更新成功')
+    } else {
+      // 创建任务
+      await tasksStore.createTask(dataToSubmit)
+      ElMessage.success('任务创建成功')
+    }
+
+    showTaskDialog.value = false
     resetForm()
   } catch (e: any) {
-    console.error('创建任务失败:', e)
-    const errorMsg = e?.response?.data?.message || e?.message || '创建失败'
+    console.error('保存任务失败:', e)
+    const errorMsg = e?.response?.data?.message || e?.message || '保存失败'
     ElMessage.error(errorMsg)
   }
 }
 
+function handleDialogClosed() {
+  resetForm()
+}
+
 function resetForm() {
+  isEditMode.value = false
+  editingTaskId.value = null
   formData.value = {
     name: '',
     description: '',
@@ -104,7 +148,7 @@ function resetForm() {
     prompt_id: undefined,
     llm_config_id: undefined,
     schedule: { type: 'daily', time: '09:00' },
-    browser_mode: 'profile' as const,
+    browser_mode: 'profile',
     profile_name: 'Default'
   }
 }
@@ -123,11 +167,6 @@ async function handleDelete(id: number) {
   await ElMessageBox.confirm('确定删除此任务？', '确认', { type: 'warning' })
   await tasksStore.deleteTask(id)
   ElMessage.success('任务已删除')
-}
-
-function handleEdit(_task: Task) {
-  // TODO: Implement edit dialog
-  ElMessage.info('编辑功能开发中')
 }
 </script>
 
