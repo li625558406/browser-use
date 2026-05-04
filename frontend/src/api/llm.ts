@@ -32,5 +32,5 @@ export const llmApi = {
     api.post<LLMConfig>(`/llm-configs/${id}/set-default`),
 
   test: (id: number) =>
-    api.post<{ status: string; message: string }>(`/llm-configs/${id}/test`)
+    api.post<{ provider: string; model: string; latency_ms: number }>(`/llm-configs/${id}/test`)
 }

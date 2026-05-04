@@ -14,6 +14,11 @@ from browser_use.browser.cloud.views import CloudBrowserParams
 from browser_use.config import CONFIG
 from browser_use.utils import _log_pretty_path, logger
 
+# Module-level: survives Pydantic model rebuilding across instances
+_ORIGINAL_USER_DATA_DIR: str | None = None
+_CURRENT_TEMP_USER_DATA_DIR: str | None = None
+_SKIP_PROFILE_COPY: bool = False
+
 
 def _get_enable_default_extensions_default() -> bool:
 	"""Get the default value for enable_default_extensions from env var or True."""
@@ -801,13 +806,19 @@ class BrowserProfile(BrowserConnectArgs, BrowserLaunchPersistentContextArgs, Bro
 
 	def _copy_profile(self) -> None:
 		"""Copy profile to temp directory if user_data_dir is not None and not already a temp dir."""
+		if _SKIP_PROFILE_COPY:
+			return
+		global _ORIGINAL_USER_DATA_DIR, _CURRENT_TEMP_USER_DATA_DIR
+
 		if self.user_data_dir is None:
 			return
 
 		user_data_str = str(self.user_data_dir)
 		if 'browser-use-user-data-dir-' in user_data_str.lower():
-			# Already using a temp directory, no need to copy
 			return
+
+		# Save original path at module level (survives Pydantic model rebuilding)
+		_ORIGINAL_USER_DATA_DIR = str(self.user_data_dir)
 
 		is_chrome = (
 			'chrome' in user_data_str.lower()
@@ -815,8 +826,10 @@ class BrowserProfile(BrowserConnectArgs, BrowserLaunchPersistentContextArgs, Bro
 			or self.channel
 			in (BrowserChannel.CHROME, BrowserChannel.CHROME_BETA, BrowserChannel.CHROME_DEV, BrowserChannel.CHROME_CANARY)
 		)
+		print(f'[_copy_profile] is_chrome={is_chrome}')
 
 		if not is_chrome:
+			print(f'[_copy_profile] SKIPPED: not chrome')
 			return
 
 		temp_dir = tempfile.mkdtemp(prefix='browser-use-user-data-dir-')
@@ -840,6 +853,47 @@ class BrowserProfile(BrowserConnectArgs, BrowserLaunchPersistentContextArgs, Bro
 			logger.info(f'Created new profile ({self.profile_directory}) in temp directory: {temp_dir}')
 
 		self.user_data_dir = temp_dir
+
+	def save_profile_back(self) -> None:
+		"""Copy temp profile data back to the original user_data_dir for persistence.
+		Must be called AFTER browser is killed (file locks released)."""
+		global _CURRENT_TEMP_USER_DATA_DIR
+		original_dir = _ORIGINAL_USER_DATA_DIR
+		current_dir = _CURRENT_TEMP_USER_DATA_DIR or str(self.user_data_dir)
+
+		if not original_dir:
+			logger.warning('save_profile_back SKIPPED: _ORIGINAL_USER_DATA_DIR is not set!')
+			return
+
+		if not current_dir or 'browser-use-user-data-dir-' not in current_dir.lower():
+			logger.warning('save_profile_back SKIPPED: not using a temp directory')
+			return
+
+		import shutil
+		path_original = Path(original_dir)
+		path_current = Path(current_dir)
+
+		try:
+			path_original.mkdir(parents=True, exist_ok=True)
+			current_profile = path_current / self.profile_directory
+			original_profile = path_original / self.profile_directory
+
+			if current_profile.exists():
+				if original_profile.exists():
+					shutil.rmtree(original_profile)
+				shutil.copytree(current_profile, original_profile)
+				logger.info(f'Saved profile back to {original_dir}')
+			else:
+				logger.debug(f'save_profile_back: profile dir does not exist: {current_profile}')
+
+			current_local_state = path_current / 'Local State'
+			original_local_state = path_original / 'Local State'
+			if current_local_state.exists():
+				shutil.copy2(current_local_state, original_local_state)
+		except Exception as e:
+			logger.warning(f'Failed to save profile back: {e}')
+			import traceback
+			traceback.print_exc()
 
 	def get_args(self) -> list[str]:
 		"""Get the list of all Chrome CLI launch args for this profile (compiled from defaults, user-provided, and system-specific)."""

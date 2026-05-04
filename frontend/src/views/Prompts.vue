@@ -37,7 +37,7 @@
       </el-tab-pane>
       <el-tab-pane v-for="category in categories" :key="category" :label="category" :name="category">
         <div class="prompt-list">
-          <el-card v-for="prompt in promptsByCategory[category] || []" :key="prompt.id" class="prompt-card">
+          <el-card v-for="prompt in getPromptsByCategory(category)" :key="prompt.id" class="prompt-card">
             <template #header>
               <div class="card-header">
                 <span class="prompt-name">{{ prompt.name }}</span>
@@ -98,7 +98,6 @@ import type { Prompt } from '@/api/types'
 const promptsStore = usePromptsStore()
 const prompts = computed(() => promptsStore.prompts)
 const promptsByCategory = computed(() => promptsStore.promptsByCategory)
-const loading = computed(() => promptsStore.loading)
 
 const activeCategory = ref('all')
 const showCreateDialog = ref(false)
@@ -110,7 +109,7 @@ const formData = ref({
   description: '',
   content: '',
   category: '',
-  variables: []
+  variables: [] as string[]
 })
 
 const categories = computed(() => {
@@ -121,6 +120,11 @@ const categories = computed(() => {
 onMounted(async () => {
   await promptsStore.fetchPrompts()
 })
+
+function getPromptsByCategory(category: string | null) {
+  if (!category) return []
+  return promptsByCategory.value[category] || []
+}
 
 async function handleCreate() {
   try {

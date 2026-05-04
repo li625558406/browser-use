@@ -31,6 +31,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { Task } from '@/api/types'
 
 const props = defineProps<{

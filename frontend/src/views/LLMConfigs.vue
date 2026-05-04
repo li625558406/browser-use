@@ -132,10 +132,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { LLMConfig } from '@/api/types'
 
 const llmStore = useLLMStore()
-const configs = computed(() => llmStore.configs)
 const defaultConfig = computed(() => llmStore.defaultConfig)
 const nonDefaultConfigs = computed(() => llmStore.nonDefaultConfigs)
-const loading = computed(() => llmStore.loading)
 
 const showCreateDialog = ref(false)
 const editingConfig = ref<LLMConfig | null>(null)

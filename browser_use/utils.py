@@ -159,12 +159,30 @@ class SignalHandler:
 
 		try:
 			if self.is_windows:
-				# On Windows, use simple signal handling with immediate exit on Ctrl+C
+				# On Windows, save profile then exit on Ctrl+C
 				def windows_handler(sig, frame):
-					print('\n\n🛑 Got Ctrl+C. Exiting immediately on Windows...\n', file=stderr)
-					# Run the custom exit callback if provided
+					print(chr(10)*2 + "Ctrl+C received. Saving profile before exit..." + chr(10), file=stderr)
 					if self.custom_exit_callback:
 						self.custom_exit_callback()
+					# Save profile back before exit
+					try:
+						from browser_use.browser.profile import _ORIGINAL_USER_DATA_DIR, _CURRENT_TEMP_USER_DATA_DIR
+						if _ORIGINAL_USER_DATA_DIR and _CURRENT_TEMP_USER_DATA_DIR:
+							import shutil as _shutil
+							from pathlib import Path as _Path
+							_src = _Path(_CURRENT_TEMP_USER_DATA_DIR) / "Default"
+							_dst = _Path(_ORIGINAL_USER_DATA_DIR) / "Default"
+							if _src.exists():
+								if _dst.exists():
+									_shutil.rmtree(_dst)
+									_shutil.copytree(_src, _dst)
+								_ls = _Path(_CURRENT_TEMP_USER_DATA_DIR) / "Local State"
+								_ld = _Path(_ORIGINAL_USER_DATA_DIR) / "Local State"
+								if _ls.exists():
+									_shutil.copy2(_ls, _ld)
+								print("[Ctrl+C] Profile saved to " + _ORIGINAL_USER_DATA_DIR, file=stderr)
+					except Exception as _e:
+						print("[Ctrl+C] Profile save failed: " + str(_e), file=stderr)
 					os._exit(0)
 
 				self.original_sigint_handler = signal.signal(signal.SIGINT, windows_handler)

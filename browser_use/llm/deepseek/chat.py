@@ -153,7 +153,7 @@ class ChatDeepSeek(BaseChatModel):
 							},
 						}
 					]
-					tool_choice = {'type': 'function', 'function': {'name': tool_name}}
+					tool_choice = 'auto'
 				resp = await client.chat.completions.create(  # type: ignore
 					model=self.model,
 					messages=ds_messages,  # type: ignore

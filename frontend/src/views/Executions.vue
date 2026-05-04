@@ -16,7 +16,7 @@
       </div>
     </div>
 
-    <el-table :data="filteredExecutions" style="width: 100%" v-loading="loading">
+    <el-table :data="filteredExecutions" style="width: 100%">
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="task_name" label="任务名称" width="200" />
       <el-table-column label="状态" width="100">
@@ -108,9 +108,7 @@ import { ElMessage } from 'element-plus'
 const executionsStore = useExecutionsStore()
 const tasksStore = useTasksStore()
 
-const executions = computed(() => executionsStore.executions)
 const tasks = computed(() => tasksStore.tasks)
-const loading = computed(() => executionsStore.loading)
 
 const filterStatus = ref('')
 const filterTask = ref<number | null>(null)

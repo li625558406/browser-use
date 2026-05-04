@@ -36,7 +36,7 @@ import { useLLMStore } from '@/stores/llm'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import TaskCard from '@/components/tasks/TaskCard.vue'
 import TaskForm from '@/components/tasks/TaskForm.vue'
-import type { Task } from '@/api/types'
+import type { Task, TaskCreate } from '@/api/tasks'
 
 const tasksStore = useTasksStore()
 const promptsStore = usePromptsStore()
@@ -67,19 +67,20 @@ onMounted(async () => {
 
 async function handleCreate() {
   try {
-    // 清理 undefined 字段
-    const dataToSubmit = {
-      ...formData.value,
-      prompt_id: formData.value.prompt_id || undefined,
-      llm_config_id: formData.value.llm_config_id || undefined
+    // 清理 undefined 字段，构造 TaskCreate 对象
+    const rawFormData = formData.value
+    const dataToSubmit: TaskCreate = {
+      name: rawFormData.name,
+      schedule: rawFormData.schedule,
+      browser_mode: rawFormData.browser_mode
     }
 
-    // 移除值为 undefined 的字段
-    if (!dataToSubmit.prompt_id) delete dataToSubmit.prompt_id
-    if (!dataToSubmit.llm_config_id) delete dataToSubmit.llm_config_id
-    if (!dataToSubmit.description) delete dataToSubmit.description
-    if (!dataToSubmit.target_url) delete dataToSubmit.target_url
-    if (!dataToSubmit.depends_on) delete dataToSubmit.depends_on
+    // 添加可选字段
+    if (rawFormData.description) dataToSubmit.description = rawFormData.description
+    if (rawFormData.target_url) dataToSubmit.target_url = rawFormData.target_url
+    if (rawFormData.prompt_id) dataToSubmit.prompt_id = rawFormData.prompt_id
+    if (rawFormData.llm_config_id) dataToSubmit.llm_config_id = rawFormData.llm_config_id
+    if (rawFormData.profile_name) dataToSubmit.profile_name = rawFormData.profile_name
 
     console.log('提交数据:', dataToSubmit)
     const result = await tasksStore.createTask(dataToSubmit)
@@ -124,7 +125,7 @@ async function handleDelete(id: number) {
   ElMessage.success('任务已删除')
 }
 
-function handleEdit(task: Task) {
+function handleEdit(_task: Task) {
   // TODO: Implement edit dialog
   ElMessage.info('编辑功能开发中')
 }

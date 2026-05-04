@@ -61,19 +61,30 @@ import { useLLMStore } from '@/stores/llm'
 const promptsStore = usePromptsStore()
 const llmStore = useLLMStore()
 
-const form = defineModel<{
-  name: string
-  description?: string
-  target_url?: string
-  prompt_id?: number
-  llm_config_id?: number
-  schedule: {
-    type: string
-    time?: string
+const props = defineProps<{
+  modelValue: {
+    name: string
+    description?: string
+    target_url?: string
+    prompt_id?: number
+    llm_config_id?: number
+    schedule: {
+      type: string
+      time?: string
+    }
+    browser_mode: 'connect' | 'profile'
+    profile_name?: string
   }
-  browser_mode: 'connect' | 'profile'
-  profile_name?: string
 }>()
+
+const emit = defineEmits<{
+  'update:modelValue': [value: any]
+}>()
+
+const form = computed({
+  get: () => props.modelValue,
+  set: (value) => emit('update:modelValue', value)
+})
 
 const scheduleTime = ref<string>()
 

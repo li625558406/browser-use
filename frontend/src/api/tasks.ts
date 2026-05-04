@@ -1,6 +1,8 @@
 import { api } from './index'
 import type { Task } from './types'
 
+export type { Task } from './types'
+
 export interface TaskCreate {
   name: string
   description?: string

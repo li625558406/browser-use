@@ -697,6 +697,10 @@ class BrowserSession(BaseModel):
 		# Create fresh event bus
 		self.event_bus = EventBus()
 
+		# Save profile data back AFTER browser is killed (file locks released)
+		if self.browser_profile:
+			self.browser_profile.save_profile_back()
+
 	async def stop(self) -> None:
 		"""Stop the browser session without killing the browser process.
 
