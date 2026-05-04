@@ -11,6 +11,7 @@ from browser_use.agent.service import Agent
 from browser_use.browser.profile import BrowserProfile
 from browser_use.browser.session import BrowserSession
 
+from backend.database import async_session_maker
 from backend.models.execution import TaskExecution
 from backend.models.task import Task
 from backend.utils.logger import logger
@@ -21,24 +22,38 @@ logger = logging.getLogger(__name__)
 class TaskExecutor:
 	"""任务执行器 - 负责执行单个任务"""
 
-	def __init__(self, session: AsyncSession, task: Task):
-		self.session = session
+	def __init__(self, task: Task):
 		self.task = task
 		self.execution: TaskExecution | None = None
 		self.browser_session: BrowserSession | None = None
 		self._stopped = False
+		self._session: AsyncSession | None = None
+
+	async def _get_session(self) -> AsyncSession:
+		"""获取独立的数据库 session"""
+		if self._session is None:
+			self._session = async_session_maker()
+		return self._session
+
+	async def _close_session(self):
+		"""关闭数据库 session"""
+		if self._session:
+			await self._session.close()
+			self._session = None
 
 	async def execute(self) -> TaskExecution:
 		"""执行任务并返回执行记录"""
+		session = await self._get_session()
+
 		# 创建执行记录
 		self.execution = TaskExecution(
 			task_id=self.task.id,
 			status="running",
 			started_at=datetime.now(),
 		)
-		self.session.add(self.execution)
-		await self.session.commit()
-		await self.session.refresh(self.execution)
+		session.add(self.execution)
+		await session.commit()
+		await session.refresh(self.execution)
 
 		logger.info(f"开始执行任务: {self.task.name} (执行ID: {self.execution.id})")
 
@@ -92,6 +107,8 @@ class TaskExecutor:
 		finally:
 			# 清理浏览器资源
 			await self._cleanup()
+			# 关闭数据库 session
+			await self._close_session()
 
 		return self.execution
 
@@ -102,7 +119,8 @@ class TaskExecutor:
 
 		from backend.models.prompt import Prompt
 
-		prompt = await self.session.get(Prompt, self.task.prompt_id)
+		session = await self._get_session()
+		prompt = await session.get(Prompt, self.task.prompt_id)
 		return prompt.content if prompt else None
 
 	async def _get_llm_config(self):
@@ -112,7 +130,8 @@ class TaskExecutor:
 
 		from backend.models.llm_config import LLMConfig
 
-		config = await self.session.get(LLMConfig, self.task.llm_config_id)
+		session = await self._get_session()
+		config = await session.get(LLMConfig, self.task.llm_config_id)
 		return config
 
 	def _build_task_prompt(self, prompt_content: str) -> str:
@@ -143,8 +162,17 @@ class TaskExecutor:
 			profile = BrowserProfile()
 
 			if self.task.profile_name:
+				# 设置用户数据目录
 				profile.user_data_dir = str(self._get_chrome_user_data_dir())
-				profile.profile_name = self.task.profile_name
+				# BrowserProfile 使用 profile_directory 而不是 profile_name
+				# Chrome 的配置目录名称: "Default", "Profile 1", "Profile 2", etc.
+				if self.task.profile_name == "Default":
+					profile.profile_directory = "Default"
+				elif self.task.profile_name.startswith("Profile"):
+					profile.profile_directory = self.task.profile_name
+				else:
+					# 如果用户输入的是 "Profile 1"，需要转换为 "Profile 1"
+					profile.profile_directory = self.task.profile_name
 
 			self.browser_session = BrowserSession(
 				browser_profile=profile,
@@ -228,6 +256,7 @@ class TaskExecutor:
 	):
 		"""完成执行记录"""
 		if self.execution:
+			session = await self._get_session()
 			self.execution.status = status
 			self.execution.completed_at = datetime.now()
 			self.execution.log_content = output
@@ -235,7 +264,7 @@ class TaskExecutor:
 			if error_message:
 				self.execution.error_message = error_message
 
-			await self.session.commit()
+			await session.commit()
 
 	async def _cleanup(self):
 		"""清理资源"""

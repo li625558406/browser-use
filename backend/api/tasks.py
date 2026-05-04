@@ -204,7 +204,8 @@ async def run_task(
 	# 创建异步任务执行
 	async def execute_task():
 		try:
-			executor = TaskExecutor(session, task)
+			# TaskExecutor 会创建自己的 session
+			executor = TaskExecutor(task)
 			execution = await executor.execute()
 			logger.info(f"任务 {task.name} 执行完成，状态: {execution.status}")
 		except Exception as e:

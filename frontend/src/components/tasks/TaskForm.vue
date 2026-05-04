@@ -48,6 +48,7 @@
       <el-select v-model="form.profile_name">
         <el-option label="Default" value="Default" />
         <el-option label="Profile 1" value="Profile 1" />
+        <el-option label="Profile 2" value="Profile 2" />
       </el-select>
     </el-form-item>
   </el-form>
