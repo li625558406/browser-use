@@ -1,5 +1,7 @@
 # D:/AI/ai-scout/browser-use/backend/api/tasks.py
 
+import asyncio
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -10,8 +12,13 @@ from backend.api.response import ApiResponse, ErrorCode
 from backend.dependencies import get_session
 from backend.models.task import Task
 from backend.schemas.task import TaskCreate, TaskResponse, TaskUpdate
+from backend.services.task_executor import TaskExecutor
+from backend.utils.logger import logger
 
 router = APIRouter()
+
+# 存储正在运行的任务
+_running_tasks: dict[int, asyncio.Task] = {}
 
 
 @router.get("", response_model=ApiResponse[list[TaskResponse]])
@@ -190,11 +197,27 @@ async def run_task(
 	if not task.is_enabled:
 		return ApiResponse.error(code=ErrorCode.INVALID_PARAMS, message="任务已禁用，无法运行")
 
-	# TODO: 实现任务执行逻辑
-	# 这里需要调用 browser-use 的 Agent 来执行任务
-	# 目前返回一个占位响应
+	# 检查任务是否已在运行
+	if task_id in _running_tasks:
+		return ApiResponse.error(code=ErrorCode.INVALID_PARAMS, message="任务正在运行中")
+
+	# 创建异步任务执行
+	async def execute_task():
+		try:
+			executor = TaskExecutor(session, task)
+			execution = await executor.execute()
+			logger.info(f"任务 {task.name} 执行完成，状态: {execution.status}")
+		except Exception as e:
+			logger.error(f"任务 {task.name} 执行失败: {e}", exc_info=True)
+		finally:
+			# 从运行中列表移除
+			_running_tasks.pop(task_id, None)
+
+	# 在后台执行任务
+	background_task = asyncio.create_task(execute_task())
+	_running_tasks[task_id] = background_task
 
 	return ApiResponse.success(
-		data={"task_id": task_id, "status": "queued"},
-		message="任务已加入执行队列",
+		data={"task_id": task_id, "status": "running"},
+		message="任务已开始执行",
 	)
