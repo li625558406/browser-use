@@ -23,8 +23,8 @@ DEFAULT_LLMS = [
     {
         "name": "Ollama 本地模型",
         "provider": "ollama",
-        "base_url": "http://localhost:11434",
-        "model": "llama3.2",
+        "base_url": "http://localhost:11434/v1",
+        "model": "deepseek-r1:14b",
         "temperature": 0.7,
         "max_tokens": 4096,
         "is_default": False,
