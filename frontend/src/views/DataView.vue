@@ -29,7 +29,7 @@
             </div>
             <template #footer>
               <div class="file-actions">
-                <el-button size="small" @click="previewFile(file)">预览</el-button>
+                <el-button size="small" @click="openPreview(file)">预览</el-button>
                 <el-button size="small" type="primary" @click="downloadFile(file)">下载</el-button>
               </div>
             </template>
@@ -46,7 +46,7 @@
               <el-badge :value="category.count" class="category-badge" />
             </div>
             <div v-show="expandedCategories.has(category.name)" class="category-files">
-              <div v-for="file in category.files" :key="file.name" class="category-file" @click="previewFile(file)">
+              <div v-for="file in category.files" :key="file.name" class="category-file" @click="openPreview(file)">
                 <el-icon><Document /></el-icon>
                 <span>{{ file.name }}</span>
               </div>
@@ -130,7 +130,7 @@ function toggleCategory(name: string) {
   }
 }
 
-function previewFile(file: any) {
+function openPreview(file: any) {
   previewFile.value = file
   previewContent.value = `# ${file.name}\n\n这是文件预览内容...\n\n实际使用时，这里会从服务器加载文件内容。`
   showPreview.value = true
