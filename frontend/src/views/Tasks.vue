@@ -67,11 +67,44 @@ onMounted(async () => {
 
 async function handleCreate() {
   try {
-    await tasksStore.createTask(formData.value)
+    // 清理 undefined 字段
+    const dataToSubmit = {
+      ...formData.value,
+      prompt_id: formData.value.prompt_id || undefined,
+      llm_config_id: formData.value.llm_config_id || undefined
+    }
+
+    // 移除值为 undefined 的字段
+    if (!dataToSubmit.prompt_id) delete dataToSubmit.prompt_id
+    if (!dataToSubmit.llm_config_id) delete dataToSubmit.llm_config_id
+    if (!dataToSubmit.description) delete dataToSubmit.description
+    if (!dataToSubmit.target_url) delete dataToSubmit.target_url
+    if (!dataToSubmit.depends_on) delete dataToSubmit.depends_on
+
+    console.log('提交数据:', dataToSubmit)
+    const result = await tasksStore.createTask(dataToSubmit)
+    console.log('创建任务成功:', result)
     ElMessage.success('任务创建成功')
     showCreateDialog.value = false
-  } catch (e) {
-    ElMessage.error('创建失败')
+    // 重置表单
+    resetForm()
+  } catch (e: any) {
+    console.error('创建任务失败:', e)
+    const errorMsg = e?.response?.data?.message || e?.message || '创建失败'
+    ElMessage.error(errorMsg)
+  }
+}
+
+function resetForm() {
+  formData.value = {
+    name: '',
+    description: '',
+    target_url: '',
+    prompt_id: undefined,
+    llm_config_id: undefined,
+    schedule: { type: 'daily', time: '09:00' },
+    browser_mode: 'profile' as const,
+    profile_name: 'Default'
   }
 }
 
