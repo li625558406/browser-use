@@ -12,7 +12,7 @@ from backend.utils.logger import logger
 
 DEFAULT_LLMS = [
     {
-        "name": "DeepSeek Chat",
+        "name": "DeepSeek 聊天",
         "provider": "deepseek",
         "base_url": "https://api.deepseek.com",
         "model": "deepseek-chat",
@@ -21,7 +21,7 @@ DEFAULT_LLMS = [
         "is_default": True,
     },
     {
-        "name": "Ollama Local",
+        "name": "Ollama 本地模型",
         "provider": "ollama",
         "base_url": "http://localhost:11434",
         "model": "llama3.2",
@@ -33,50 +33,57 @@ DEFAULT_LLMS = [
 
 DEFAULT_PROMPTS = [
     {
-        "name": "Generic Data Extraction",
-        "description": "Extract structured data from web pages",
-        "content": """You are a data extraction assistant. Your task is to extract structured information from the provided web page content.
+        "name": "通用数据提取",
+        "description": "从网页中提取结构化数据",
+        "content": """你是一个数据提取助手。你的任务是从提供的网页内容中提取结构化信息。
 
-Please analyze the page and extract:
-1. Main title/headline
-2. Key data points (numbers, dates, names, etc.)
-3. Important descriptions or summaries
-4. Any structured data (tables, lists, etc.)
+请分析页面并提取：
+1. 主标题/头条
+2. 关键数据点（数字、日期、名称等）
+3. 重要描述或摘要
+4. 任何结构化数据（表格、列表等）
 
-Output the extracted data in Markdown format with clear sections.""",
-        "category": "extraction",
+以 Markdown 格式输出提取的数据，使用清晰的章节标题。
+
+目标网址：{{url}}
+提取目标：{{target_data}}""",
+        "category": "数据提取",
         "variables": ["url", "target_data"],
     },
     {
-        "name": "Product Information Scraper",
-        "description": "Scrape product details from e-commerce pages",
-        "content": """You are an e-commerce product scraper. Extract the following product information from the page:
+        "name": "商品信息抓取",
+        "description": "从电商页面抓取商品详细信息",
+        "content": """你是一个电商商品信息抓取助手。请从页面中提取以下商品信息：
 
-- Product name
-- Price
-- Availability
-- Product description
-- Product images (URLs)
-- Specifications/attributes
-- Customer reviews summary
+- 商品名称
+- 价格
+- 库存状态
+- 商品描述
+- 商品图片（URL）
+- 规格/属性
+- 客户评价摘要
 
-Output in Markdown format with ## headers for each section.""",
-        "category": "ecommerce",
+以 Markdown 格式输出，每个部分使用 ## 标题。
+
+商品页面：{{product_url}}""",
+        "category": "电商",
         "variables": ["product_url"],
     },
     {
-        "name": "News Article Summarizer",
-        "description": "Summarize news articles and extract key points",
-        "content": """You are a news article analyzer. Please:
+        "name": "新闻文章摘要",
+        "description": "总结新闻文章并提取关键要点",
+        "content": """你是一个新闻文章分析助手。请完成以下任务：
 
-1. Summarize the main story in 2-3 sentences
-2. Extract key points as a bulleted list
-3. Identify the source, author, and publication date
-4. Extract any quotes from notable figures
-5. Identify related topics or tags
+1. 用 2-3 句话概括主要内容
+2. 以项目符号列表提取关键要点
+3. 确定来源、作者和发布日期
+4. 提取知名人士的任何引用
+5. 确定相关主题或标签
 
-Output in Markdown format.""",
-        "category": "news",
+以 Markdown 格式输出。
+
+文章链接：{{article_url}}""",
+        "category": "新闻",
         "variables": ["article_url"],
     },
 ]
