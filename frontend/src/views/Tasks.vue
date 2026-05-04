@@ -48,14 +48,21 @@ const loading = computed(() => tasksStore.loading)
 const showTaskDialog = ref(false)
 const isEditMode = ref(false)
 const editingTaskId = ref<number | null>(null)
-const formData = ref({
+const formData = ref<{
+  name: string
+  description: string
+  target_url: string
+  prompt_id?: number
+  llm_config_id?: number
+  schedule: { type: string; time?: string }
+  browser_mode: 'connect' | 'profile'
+  profile_name: string
+}>({
   name: '',
   description: '',
   target_url: '',
-  prompt_id: undefined,
-  llm_config_id: undefined,
   schedule: { type: 'daily', time: '09:00' },
-  browser_mode: 'profile' as const,
+  browser_mode: 'profile',
   profile_name: 'Default'
 })
 
@@ -85,13 +92,13 @@ function handleEdit(task: Task) {
     name: task.name,
     description: task.description || '',
     target_url: task.target_url || '',
-    prompt_id: task.prompt_id || undefined,
-    llm_config_id: task.llm_config_id || undefined,
+    prompt_id: task.prompt_id ?? undefined,
+    llm_config_id: task.llm_config_id ?? undefined,
     schedule: {
       type: task.schedule_type,
       time: task.schedule_config?.time || '09:00'
     },
-    browser_mode: task.browser_mode as 'connect' | 'profile',
+    browser_mode: (task.browser_mode as 'connect' | 'profile') || 'profile',
     profile_name: task.profile_name || 'Default'
   }
 
@@ -145,8 +152,6 @@ function resetForm() {
     name: '',
     description: '',
     target_url: '',
-    prompt_id: undefined,
-    llm_config_id: undefined,
     schedule: { type: 'daily', time: '09:00' },
     browser_mode: 'profile',
     profile_name: 'Default'
