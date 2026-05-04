@@ -19,6 +19,11 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("Database initialized")
 
+    # Initialize default data
+    from backend.utils.init_data import init_default_data
+    await init_default_data()
+    logger.info("Default data initialized")
+
     yield
 
     # On shutdown
