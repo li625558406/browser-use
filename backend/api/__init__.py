@@ -2,14 +2,14 @@
 
 from fastapi import APIRouter
 
-from backend.api import llm
+from backend.api import llm, prompts, tasks
 
 api_router = APIRouter()
 
-# 导入子路由（稍后添加）
-# from backend.api import tasks, prompts, data, executions, browser
-# api_router.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
-# api_router.include_router(prompts.router, prefix="/prompts", tags=["prompts"])
+# 导入子路由
+api_router.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
+# from backend.api import data, executions, browser
+api_router.include_router(prompts.router, prefix="/prompts", tags=["prompts"])
 api_router.include_router(llm.router, prefix="/llm-configs", tags=["llm"])
 # api_router.include_router(data.router, prefix="/data", tags=["data"])
 # api_router.include_router(executions.router, prefix="/executions", tags=["executions"])
