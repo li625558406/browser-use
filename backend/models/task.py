@@ -48,7 +48,7 @@ class Task(Base):
 
 	# 自引用（任务依赖）
 	depends_on_task = relationship("Task", remote_side=[id], foreign_keys=[depends_on])
-	dependent_tasks = relationship("Task", remote_side=[depends_on], foreign_keys=[id])
+	dependent_tasks = relationship("Task", foreign_keys=[depends_on], overlaps="depends_on_task")
 
 	def __repr__(self) -> str:
 		return f"<Task(id={self.id}, name='{self.name}', enabled={self.is_enabled})>"
