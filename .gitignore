@@ -22,7 +22,6 @@ dist/
 
 # Data files
 *.gif
-*.txt
 *.pdf
 *.csv
 *.json
@@ -30,9 +29,15 @@ dist/
 *.log
 *.bak
 
+# Keep requirements.txt
+!requirements.txt
+!backend/requirements.txt
+
 # Secrets and sensitive files
 secrets.env
 .env
+.env.local
+*.key
 browser_cookies.json
 cookies.json
 gcp-login.json
@@ -84,3 +89,15 @@ product_extraction.py
 plot.py
 
 .claude/
+
+# 数据库
+data/*.db
+data/*.db-journal
+
+# 导出文件
+data/exports/*
+!data/exports/.gitkeep
+
+# Node
+node_modules/
+frontend/dist/

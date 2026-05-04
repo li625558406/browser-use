@@ -1,0 +1,25 @@
+# D:/AI/ai-scout/browser-use/requirements.txt
+
+# Web Framework
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+websockets==13.1
+
+# Database
+sqlalchemy==2.0.36
+aiosqlite==0.20.0
+
+# Validation
+pydantic==2.9.2
+pydantic-settings==2.6.0
+python-multipart==0.0.12
+
+# Scheduler
+apscheduler==3.10.4
+
+# Security
+cryptography==44.0.0
+
+# Utilities
+aiofiles==24.1.0
+python-dotenv==1.0.1
