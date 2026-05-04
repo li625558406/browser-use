@@ -1,5 +1,7 @@
 # D:/AI/ai-scout/browser-use/backend/services/browser_service.py
 
+from typing import List
+
 from browser_use import Browser
 from browser_use.browser.profile import BrowserProfile
 

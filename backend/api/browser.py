@@ -1,6 +1,6 @@
 # D:/AI/ai-scout/browser-use/backend/api/browser.py
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter
 
 from backend.api.response import ApiResponse
 from backend.schemas.browser_config import (
@@ -10,7 +10,6 @@ from backend.schemas.browser_config import (
 )
 from backend.services.browser_service import BrowserService
 from backend.utils.chrome import get_available_profiles
-from backend.utils.logger import logger
 
 router = APIRouter()
 
@@ -32,7 +31,7 @@ async def list_profiles():
 
 
 @router.get("/status", response_model=ApiResponse[BrowserStatusResponse])
-async def get_browser_status():
+async def get_browser_status(cdp_port: int = 9242):
     """Get browser status"""
     profiles = get_available_profiles()
 
@@ -45,12 +44,12 @@ async def get_browser_status():
     ]
 
     # Test CDP connection
-    is_connected = await BrowserService.test_connection()
+    is_connected = await BrowserService.test_connection(cdp_port)
 
     return ApiResponse.success(
         data=BrowserStatusResponse(
             is_connected=is_connected,
-            cdp_url=f"http://localhost:9242" if is_connected else None,
+            cdp_url=f"http://localhost:{cdp_port}" if is_connected else None,
             profiles=profile_infos,
         )
     )
