@@ -33,6 +33,11 @@ dist/
 !requirements.txt
 !backend/requirements.txt
 
+# Keep frontend config files
+!frontend/package.json
+!frontend/tsconfig.json
+!frontend/tsconfig.node.json
+
 # Secrets and sensitive files
 secrets.env
 .env
