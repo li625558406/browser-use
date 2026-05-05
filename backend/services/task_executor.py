@@ -309,16 +309,16 @@ class TaskExecutor:
 					targets = self.browser_session.session_manager.get_all_page_targets()
 					if targets:
 						logger.info(f"Found {len(targets)} target(s) but no focus, setting focus to first target")
-						# Manually dispatch focus event
-						from browser_use.browser.events import AgentFocusChangedEvent
+						# Call get_or_create_cdp_session directly to set focus
+						# This is what actually sets agent_focus_target_id
 						try:
-							await self.browser_session.event_bus.dispatch(AgentFocusChangedEvent(
+							await self.browser_session.get_or_create_cdp_session(
 								target_id=targets[0].target_id,
-								url=targets[0].url
-							))
-							logger.info(f"Manually dispatched focus event to {targets[0].target_id[-8:]}")
+								focus=True
+							)
+							logger.info(f"Manually set focus to target {targets[0].target_id[-8:]}")
 						except Exception as e:
-							logger.warning(f"Failed to dispatch focus event: {e}")
+							logger.warning(f"Failed to set focus: {e}")
 			
 			await asyncio.sleep(0.5)
 		else:
