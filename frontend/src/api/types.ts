@@ -10,6 +10,8 @@ export interface Task {
   browser_mode: string
   profile_name: string | null
   is_enabled: boolean
+  max_items: number | null
+  requires_login: boolean
   depends_on: number | null
   created_at: string
   updated_at: string
@@ -44,10 +46,12 @@ export interface LLMConfig {
 export interface TaskExecution {
   id: number
   task_id: number
+  task_name: string
   status: string
   started_at: string | null
   completed_at: string | null
   error_message: string | null
+  log_content: string | null
   screenshot_path: string | null
 }
 

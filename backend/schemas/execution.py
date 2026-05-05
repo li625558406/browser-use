@@ -17,6 +17,7 @@ class TaskExecutionResponse(BaseModel):
 	started_at: Optional[datetime]
 	completed_at: Optional[datetime]
 	error_message: Optional[str]
+	log_content: Optional[str] = None
 	screenshot_path: Optional[str]
 
 

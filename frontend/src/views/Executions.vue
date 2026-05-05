@@ -5,9 +5,11 @@
       <div class="header-actions">
         <el-select v-model="filterStatus" placeholder="筛选状态" clearable style="width: 150px" @change="applyFilters">
           <el-option label="全部" value="" />
+          <el-option label="等待登录" value="waiting_for_login" />
           <el-option label="运行中" value="running" />
           <el-option label="成功" value="success" />
           <el-option label="失败" value="failed" />
+          <el-option label="已停止" value="stopped" />
         </el-select>
         <el-select v-model="filterTask" placeholder="筛选任务" clearable style="width: 200px" @change="applyFilters">
           <el-option v-for="task in tasks" :key="task.id" :label="task.name" :value="task.id" />
@@ -41,8 +43,10 @@
           {{ calculateDuration(row.started_at, row.completed_at) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column label="操作" width="250" fixed="right">
         <template #default="{ row }">
+          <el-button v-if="row.status === 'waiting_for_login'" type="primary" size="small" @click="handleResume(row)">继续执行</el-button>
+          <el-button v-if="row.status === 'running'" type="warning" size="small" @click="handleStop(row)">停止</el-button>
           <el-button size="small" @click="viewDetail(row)">详情</el-button>
           <el-button v-if="row.screenshot_path" size="small" @click="viewScreenshot(row)">截图</el-button>
           <el-button v-if="row.error_message" size="small" type="warning" @click="viewError(row)">错误</el-button>
@@ -107,6 +111,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useExecutionsStore } from '@/stores/executions'
 import { useTasksStore } from '@/stores/tasks'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { executionsApi } from '@/api/executions'
 
 const executionsStore = useExecutionsStore()
 const tasksStore = useTasksStore()
@@ -175,7 +180,9 @@ function statusType(status: string) {
   const types: Record<string, any> = {
     success: 'success',
     failed: 'danger',
-    running: 'warning'
+    running: 'warning',
+    waiting_for_login: 'info',
+    stopped: 'warning'
   }
   return types[status] || 'info'
 }
@@ -184,7 +191,9 @@ function statusLabel(status: string) {
   const labels: Record<string, string> = {
     success: '成功',
     failed: '失败',
-    running: '运行中'
+    running: '运行中',
+    waiting_for_login: '等待登录',
+    stopped: '已停止'
   }
   return labels[status] || status
 }
@@ -228,6 +237,39 @@ async function handleDelete(execution: any) {
 function refreshExecutions() {
   fetchExecutions()
   ElMessage.success('已刷新')
+}
+
+async function handleStop(execution: any) {
+  try {
+    await ElMessageBox.confirm('确定停止此执行？', '确认', { type: 'warning' })
+    await executionsApi.stop(execution.task_id)
+    ElMessage.success('任务已停止')
+    await fetchExecutions()
+  } catch (e: any) {
+    if (e !== 'cancel') {
+      ElMessage.error(e?.response?.data?.message || '停止失败')
+    }
+  }
+}
+
+async function handleResume(execution: any) {
+  try {
+    const loading = ElMessage.info({
+      message: '正在继续执行任务...',
+      duration: 0,
+    })
+
+    await executionsApi.resume(execution.task_id)
+
+    loading.close()
+    ElMessage.success('任务已继续执行')
+
+    // 刷新执行记录
+    await fetchExecutions()
+  } catch (e: any) {
+    const errorMsg = e?.response?.data?.message || e?.message || '继续执行失败'
+    ElMessage.error(errorMsg)
+  }
 }
 </script>
 

@@ -1,5 +1,7 @@
-# D:/AI/ai-scout/browser-use/backend/main.py
+# D:/AI/ai-scout\browser-use/backend/main.py
 
+import asyncio
+import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -9,6 +11,10 @@ from backend.api import api_router
 from backend.config import settings
 from backend.database import init_db
 from backend.utils.logger import logger
+
+# Windows上需要使用ProactorEventLoop来支持asyncio.subprocess
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 
 @asynccontextmanager

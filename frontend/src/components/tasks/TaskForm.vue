@@ -12,6 +12,10 @@
       <el-input v-model="form.target_url" placeholder="https://example.com" />
     </el-form-item>
 
+    <el-form-item label="最大采集数量">
+      <el-input-number v-model="form.max_items" :min="1" :max="10000" placeholder="不限" controls-position="right" style="width: 200px" />
+    </el-form-item>
+
     <el-form-item label="Prompt模板">
       <el-select v-model="form.prompt_id" placeholder="选择Prompt">
         <el-option v-for="p in prompts" :key="p.id" :label="p.name" :value="p.id" />
@@ -36,21 +40,6 @@
     <el-form-item v-if="form.schedule.type === 'daily' || form.schedule.type === 'once'" label="执行时间">
       <el-time-picker v-model="scheduleTime" format="HH:mm" />
     </el-form-item>
-
-    <el-form-item label="浏览器模式" required>
-      <el-radio-group v-model="form.browser_mode">
-        <el-radio label="connect">CDP连接</el-radio>
-        <el-radio label="profile">Chrome配置</el-radio>
-      </el-radio-group>
-    </el-form-item>
-
-    <el-form-item v-if="form.browser_mode === 'profile'" label="配置名称">
-      <el-select v-model="form.profile_name">
-        <el-option label="Default" value="Default" />
-        <el-option label="Profile 1" value="Profile 1" />
-        <el-option label="Profile 2" value="Profile 2" />
-      </el-select>
-    </el-form-item>
   </el-form>
 </template>
 
@@ -67,14 +56,14 @@ const props = defineProps<{
     name: string
     description?: string
     target_url?: string
+    max_items?: number
+    requires_login?: boolean
     prompt_id?: number
     llm_config_id?: number
     schedule: {
       type: string
       time?: string
     }
-    browser_mode: 'connect' | 'profile'
-    profile_name?: string
   }
 }>()
 

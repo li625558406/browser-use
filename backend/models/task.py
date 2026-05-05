@@ -31,6 +31,12 @@ class Task(Base):
 	browser_mode: Mapped[Optional[str]] = mapped_column(String(20), nullable=False)  # connect/profile
 	profile_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
+	# 数据控制
+	max_items: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+	# 登录配置
+	requires_login: Mapped[bool] = mapped_column(Boolean, default=True)  # 是否需要登录
+
 	# 状态
 	is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 

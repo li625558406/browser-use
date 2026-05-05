@@ -98,6 +98,14 @@ plot.py
 # 数据库
 data/*.db
 data/*.db-journal
+backend/data/*.db
+backend/data/*.db-journal
+
+# Chrome 配置文件（持久化会话）
+data/chrome_profiles/
+
+# 登录域名记录
+data/logged_in_domains.json
 
 # 导出文件
 data/exports/*

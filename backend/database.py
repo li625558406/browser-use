@@ -4,6 +4,7 @@ import asyncio
 from pathlib import Path
 from typing import AsyncGenerator
 
+from sqlalchemy import text, inspect
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -12,6 +13,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import DeclarativeBase
 
 from backend.config import settings
+from backend.utils.logger import logger
 
 
 class Base(DeclarativeBase):
@@ -37,6 +39,29 @@ async_session_maker = async_sessionmaker(
 )
 
 
+async def _ensure_columns():
+	"""确保新列存在于现有表中（SQLite 兼容）"""
+	async with engine.connect() as conn:
+		def _check_and_add(sync_conn):
+			inspector = inspect(sync_conn)
+
+			# 检查 tasks 表
+			table = "tasks"
+			if inspector.has_table(table):
+				existing = [col['name'] for col in inspector.get_columns(table)]
+				new_columns = {
+					'max_items': 'INTEGER',
+					'requires_login': 'BOOLEAN DEFAULT 1',
+				}
+				for col_name, col_type in new_columns.items():
+					if col_name not in existing:
+						sync_conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}"))
+						logger.info(f"Added column '{col_name}' to table '{table}'")
+						sync_conn.commit()
+
+		await conn.run_sync(_check_and_add)
+
+
 async def init_db() -> None:
 	"""初始化数据库"""
 	# 确保数据目录存在
@@ -51,6 +76,9 @@ async def init_db() -> None:
 
 	async with engine.begin() as conn:
 		await conn.run_sync(Base.metadata.create_all)
+
+	# 确保新列存在
+	await _ensure_columns()
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:

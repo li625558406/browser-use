@@ -16,8 +16,8 @@ export interface TaskCreate {
     interval?: number
     cron?: string
   }
-  browser_mode: 'connect' | 'profile'
-  profile_name?: string
+  max_items?: number
+  requires_login?: boolean
   depends_on?: number
 }
 
@@ -41,5 +41,8 @@ export const tasksApi = {
     api.post<Task>(`/tasks/${id}/toggle`),
 
   run: (id: number) =>
-    api.post<{ message: string; execution_id: number | null }>(`/tasks/${id}/run`)
+    api.post<{ message: string; execution_id: number | null }>(`/tasks/${id}/run`),
+
+  stop: (id: number) =>
+    api.post<{ message: string }>(`/tasks/${id}/stop`)
 }

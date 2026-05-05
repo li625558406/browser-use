@@ -23,8 +23,9 @@ class TaskCreate(BaseModel):
 	prompt_id: Optional[int] = None
 	llm_config_id: Optional[int] = None
 	schedule: ScheduleConfig
-	browser_mode: str = Field("profile", pattern="^(connect|profile)$")
-	profile_name: Optional[str] = "Default"
+	max_items: Optional[int] = Field(None, ge=1, le=10000, description="最大采集数量")
+	requires_login: Optional[bool] = Field(True, description="是否需要登录")
+	# browser_mode 和 profile_name 不再由前端指定，默认使用 CDP 模式
 	depends_on: Optional[int] = None
 
 
@@ -36,9 +37,9 @@ class TaskUpdate(BaseModel):
 	prompt_id: Optional[int] = None
 	llm_config_id: Optional[int] = None
 	schedule: Optional[ScheduleConfig] = None
-	browser_mode: Optional[str] = Field(None, pattern="^(connect|profile)$")
-	profile_name: Optional[str] = None
 	is_enabled: Optional[bool] = None
+	max_items: Optional[int] = None
+	requires_login: Optional[bool] = None
 	depends_on: Optional[int] = None
 
 
@@ -54,9 +55,11 @@ class TaskResponse(BaseModel):
 	llm_config_id: Optional[int]
 	schedule_type: str
 	schedule_config: Optional[dict]
-	browser_mode: str
+	browser_mode: Optional[str]
 	profile_name: Optional[str]
 	is_enabled: bool
+	max_items: Optional[int]
+	requires_login: bool
 	depends_on: Optional[int]
 	created_at: datetime
 	updated_at: datetime

@@ -5,15 +5,19 @@
       <el-button type="primary" @click="openCreateDialog">新建任务</el-button>
     </div>
 
-    <div class="task-list">
-      <el-empty v-if="tasks.length === 0 && !loading" description="暂无任务" />
+    <div v-if="tasks.length === 0 && !loading" class="empty-state">
+      <el-empty description="暂无任务" />
+    </div>
+    <div v-else class="task-grid">
       <TaskCard
         v-for="task in tasks"
         :key="task.id"
         :task="task"
+        :is-running="runningTaskIds.has(task.id)"
         @edit="handleEdit"
         @toggle="handleToggle"
         @run="handleRun"
+        @stop="handleStop"
         @delete="handleDelete"
       />
     </div>
@@ -37,6 +41,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import TaskCard from '@/components/tasks/TaskCard.vue'
 import TaskForm from '@/components/tasks/TaskForm.vue'
 import type { Task, TaskCreate } from '@/api/tasks'
+import { tasksApi } from '@/api/tasks'
 
 const tasksStore = useTasksStore()
 const promptsStore = usePromptsStore()
@@ -45,26 +50,22 @@ const llmStore = useLLMStore()
 const tasks = computed(() => tasksStore.tasks)
 const loading = computed(() => tasksStore.loading)
 
+const runningTaskIds = ref<Set<number>>(new Set())
+
 const showTaskDialog = ref(false)
 const isEditMode = ref(false)
 const editingTaskId = ref<number | null>(null)
-const formData = ref<{
-  name: string
-  description: string
-  target_url: string
-  prompt_id?: number
-  llm_config_id?: number
-  schedule: { type: string; time?: string }
-  browser_mode: 'connect' | 'profile'
-  profile_name: string
-}>({
-  name: '',
-  description: '',
-  target_url: '',
-  schedule: { type: 'daily', time: '09:00' },
-  browser_mode: 'profile',
-  profile_name: 'Default'
-})
+	const formData = ref<any>({
+	  name: '',
+	  description: '',
+	  target_url: '',
+	  requires_login: true,
+	  max_items: undefined,
+	  prompt_id: undefined,
+	  llm_config_id: undefined,
+	  schedule: { type: 'daily', time: '09:00' }
+	})
+
 
 const dialogTitle = computed(() => isEditMode.value ? '编辑任务' : '新建任务')
 
@@ -92,14 +93,14 @@ function handleEdit(task: Task) {
     name: task.name,
     description: task.description || '',
     target_url: task.target_url || '',
+    max_items: task.max_items ?? undefined,
+    requires_login: task.requires_login,
     prompt_id: task.prompt_id ?? undefined,
     llm_config_id: task.llm_config_id ?? undefined,
     schedule: {
       type: task.schedule_type,
       time: task.schedule_config?.time || '09:00'
-    },
-    browser_mode: (task.browser_mode as 'connect' | 'profile') || 'profile',
-    profile_name: task.profile_name || 'Default'
+    }
   }
 
   showTaskDialog.value = true
@@ -109,18 +110,18 @@ async function handleSave() {
   try {
     // 清理 undefined 字段，构造 TaskCreate 对象
     const rawFormData = formData.value
-    const dataToSubmit: TaskCreate = {
+    const dataToSubmit: any = {
       name: rawFormData.name,
-      schedule: rawFormData.schedule,
-      browser_mode: rawFormData.browser_mode
+      schedule: rawFormData.schedule
     }
 
     // 添加可选字段
     if (rawFormData.description) dataToSubmit.description = rawFormData.description
     if (rawFormData.target_url) dataToSubmit.target_url = rawFormData.target_url
+    if (rawFormData.max_items) dataToSubmit.max_items = rawFormData.max_items
+    if (rawFormData.requires_login !== undefined) dataToSubmit.requires_login = rawFormData.requires_login
     if (rawFormData.prompt_id) dataToSubmit.prompt_id = rawFormData.prompt_id
     if (rawFormData.llm_config_id) dataToSubmit.llm_config_id = rawFormData.llm_config_id
-    if (rawFormData.profile_name) dataToSubmit.profile_name = rawFormData.profile_name
 
     if (isEditMode.value && editingTaskId.value) {
       // 更新任务
@@ -152,9 +153,9 @@ function resetForm() {
     name: '',
     description: '',
     target_url: '',
-    schedule: { type: 'daily', time: '09:00' },
-    browser_mode: 'profile',
-    profile_name: 'Default'
+    max_items: undefined,
+    requires_login: true,
+    schedule: { type: 'daily', time: '09:00' }
   }
 }
 
@@ -165,7 +166,18 @@ async function handleToggle(id: number) {
 
 async function handleRun(id: number) {
   await tasksStore.runTask(id)
-  ElMessage.success('任务已启动')
+  runningTaskIds.value.add(id)
+  ElMessage.success('任务已启动，请查看执行记录')
+}
+
+async function handleStop(id: number) {
+  try {
+    await tasksApi.stop(id)
+    runningTaskIds.value.delete(id)
+    ElMessage.success('任务已停止')
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '停止失败')
+  }
 }
 
 async function handleDelete(id: number) {
@@ -192,8 +204,13 @@ async function handleDelete(id: number) {
   margin: 0;
 }
 
-.task-list {
-  display: flex;
-  flex-direction: column;
+.empty-state {
+  padding: 60px 0;
+}
+
+.task-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
 }
 </style>

@@ -9,7 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.response import ApiResponse, ErrorCode
-from backend.dependencies import get_session
+from backend.dependencies import get_session, get_db
+from backend.models.execution import TaskExecution
 from backend.models.task import Task
 from backend.schemas.task import TaskCreate, TaskResponse, TaskUpdate
 from backend.services.task_executor import TaskExecutor
@@ -19,6 +20,8 @@ router = APIRouter()
 
 # 存储正在运行的任务
 _running_tasks: dict[int, asyncio.Task] = {}
+# 存储活跃的 executor 实例（用于 resume）
+_executors: dict[int, 'TaskExecutor'] = {}
 
 
 @router.get("", response_model=ApiResponse[list[TaskResponse]])
@@ -61,8 +64,11 @@ async def create_task(
 		llm_config_id=task_data.llm_config_id,
 		schedule_type=task_data.schedule.type,
 		schedule_config=task_data.schedule.model_dump(exclude_none=True),
-		browser_mode=task_data.browser_mode,
-		profile_name=task_data.profile_name,
+		browser_mode="connect",  # 默认使用 CDP 模式
+		profile_name=None,  # CDP 模式不使用 profile
+		is_enabled=True,
+		max_items=task_data.max_items,
+		requires_login=task_data.requires_login if task_data.requires_login is not None else True,
 		depends_on=task_data.depends_on,
 	)
 
@@ -122,10 +128,11 @@ async def update_task(
 	if task_data.schedule is not None:
 		task.schedule_type = task_data.schedule.type
 		task.schedule_config = task_data.schedule.model_dump(exclude_none=True)
-	if task_data.browser_mode is not None:
-		task.browser_mode = task_data.browser_mode
-	if task_data.profile_name is not None:
-		task.profile_name = task_data.profile_name
+	# browser_mode 和 profile_name 不再允许前端修改，始终使用 CDP 模式
+	if task_data.max_items is not None:
+		task.max_items = task_data.max_items
+	if task_data.requires_login is not None:
+		task.requires_login = task_data.requires_login
 	if task_data.is_enabled is not None:
 		task.is_enabled = task_data.is_enabled
 	if task_data.depends_on is not None:
@@ -203,15 +210,23 @@ async def run_task(
 
 	# 创建异步任务执行
 	async def execute_task():
+		executor = None
 		try:
 			# TaskExecutor 会创建自己的 session
 			executor = TaskExecutor(task)
+			# 存储 executor 以便 resume 使用
+			_executors[task_id] = executor
 			execution = await executor.execute()
 			logger.info(f"任务 {task.name} 执行完成，状态: {execution.status}")
+
+			# 只有在任务真正完成（不是等待登录）时才移除 executor
+			if execution.status != "waiting_for_login":
+				_executors.pop(task_id, None)
+				_running_tasks.pop(task_id, None)
 		except Exception as e:
 			logger.error(f"任务 {task.name} 执行失败: {e}", exc_info=True)
-		finally:
-			# 从运行中列表移除
+			# 发生异常时也要清理
+			_executors.pop(task_id, None)
 			_running_tasks.pop(task_id, None)
 
 	# 在后台执行任务
@@ -222,3 +237,70 @@ async def run_task(
 		data={"task_id": task_id, "status": "running"},
 		message="任务已开始执行",
 	)
+
+
+@router.post("/{task_id}/resume")
+async def resume_task_execution(task_id: int, session: AsyncSession = Depends(get_db)):
+	"""继续执行任务（用户登录后）"""
+	logger.info(f"收到继续执行请求，task_id={task_id}")
+
+	task = await session.get(Task, task_id)
+
+	if not task:
+		return ApiResponse.error(code=ErrorCode.NOT_FOUND, message="任务不存在")
+
+	# 检查是否有活跃的 executor
+	logger.info(f"检查 executor 字典，task_id in _executors={task_id in _executors}")
+	if task_id not in _executors:
+		return ApiResponse.error(code=ErrorCode.INVALID_PARAMS, message="执行器未找到，请先运行任务")
+
+	executor = _executors[task_id]
+	logger.info(f"获取到 executor: {executor}")
+
+	# 检查是否是等待登录状态
+	execution_result = await session.execute(
+		select(TaskExecution)
+		.where(TaskExecution.task_id == task_id)
+		.order_by(TaskExecution.id.desc())
+		.limit(1)
+	)
+	current_execution = execution_result.scalar_one_or_none()
+
+	logger.info(f"当前执行状态: {current_execution.status if current_execution else None}")
+
+	if not current_execution or current_execution.status != "waiting_for_login":
+		return ApiResponse.error(code=ErrorCode.INVALID_PARAMS, message="当前不在等待登录状态")
+
+	try:
+		logger.info(f"调用 executor.resume_execution()...")
+		await executor.resume_execution()
+		logger.info(f"executor.resume_execution() 完成")
+		return ApiResponse.success(message="任务继续执行")
+	except Exception as e:
+		logger.error(f"继续执行任务失败: {e}", exc_info=True)
+		return ApiResponse.error(code=ErrorCode.INTERNAL_ERROR, message=f"继续执行失败: {str(e)}")
+
+
+@router.post("/{task_id}/stop")
+async def stop_task(task_id: int):
+	"""停止正在运行的任务"""
+	if task_id not in _executors:
+		return ApiResponse.error(code=ErrorCode.INVALID_PARAMS, message="任务未在运行中")
+
+	executor = _executors[task_id]
+	await executor.stop()
+
+	# 清理跟踪
+	_running_tasks.pop(task_id, None)
+	_executors.pop(task_id, None)
+
+	return ApiResponse.success(message="任务已停止")
+
+
+@router.post("/clear-domain-login")
+async def clear_domain_login(domain: str):
+	"""清除指定域名的登录状态"""
+	from backend.services.domain_registry import remove_domain
+	remove_domain(domain)
+	return ApiResponse.success(message=f"已清除域名 '{domain}' 的登录状态")
+
